@@ -1,6 +1,41 @@
 #include <raylib.h>
 #include <iostream>
 
+class Penguin
+{
+public:
+    Texture2D texture;
+    float y;
+    float x;
+
+    float speed;
+    bool active;
+
+    void spawnPenguin(Texture2D sharedTexture, float startX, float groundY) {
+        texture = sharedTexture;
+        x = startX;
+        y = groundY - texture.height;
+        speed = 5.0f;
+        active = true;
+    }
+
+    void Update() {
+        x -= speed;
+        // If the penguin rolls off the left side of the screen, recycle it to the right
+        if (x + texture.width < 0)
+        {
+            x = 1200.0f + (GetRandomValue(100, 600)); // Teleports back to the right with random variance
+        }
+    }
+
+    void Draw() {
+        if (active)
+        {
+            DrawTexture(texture, (int)x, (int)y, WHITE);
+        }
+    }
+};
+
 class PolarBear
 {
 public:
@@ -94,9 +129,24 @@ int main() {
     SetTargetFPS(60);
 
     Texture2D iceBlock = LoadTexture("C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/iceblock.png");
+    Texture2D penguinTex = LoadTexture("C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/PenguinObstacle.png");
 
     // Ice blocks placed exactly in the middle of the screen
     float floorY = 360.0f;
+
+    // Fixed array of 3 penguins spaced out down the line
+    const int MAX_PENGUINS = 3;
+    Penguin obstacles[MAX_PENGUINS];
+
+    // --- INITIAL RESOURCING & ALIGNMENT ---
+    for (int i = 0; i < MAX_PENGUINS; i++) {
+        // Space them out initially beyond the right side of the screen
+        float startX = 1200.0f + (i * 450.0f);
+        obstacles[i].spawnPenguin(penguinTex, startX, floorY);
+
+        // Pin them flat to the ice line manually so they match the bear's feet
+        obstacles[i].y = 340.0f;
+    }
 
     PolarBear player;
     player.spawnPolarBear(floorY);
@@ -106,6 +156,11 @@ int main() {
 
     while (!WindowShouldClose()) {
         player.HandleMovement();
+
+        // Update all penguin positions (makes them move left across the screen)
+        for (int i = 0; i < MAX_PENGUINS; i++) {
+            obstacles[i].Update();
+        }
 
         floorScroll -= gameSpeed;
         if (floorScroll <= -iceBlock.width)
@@ -127,7 +182,12 @@ int main() {
             DrawTexture(iceBlock, (int)xPostion, (int)floorY, WHITE);
         }
 
-        // Render the player cleanly on top of the world row layers
+        // Render all the penguins from our array cleanly
+        for (int i = 0; i < MAX_PENGUINS; i++) {
+            obstacles[i].Draw();
+        }
+
+        // Render the player cleanly on top of everything
         player.Draw();
 
         EndDrawing();
@@ -136,6 +196,7 @@ int main() {
     // Properly cleaning up resources before the program exits
     player.Unload();
     UnloadTexture(iceBlock);
+    UnloadTexture(penguinTex);
     CloseWindow();
 
     return 0;
