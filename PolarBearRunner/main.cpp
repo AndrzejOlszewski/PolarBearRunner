@@ -1,3 +1,4 @@
+
 #include <raylib.h>
 #include <iostream>
 
@@ -14,24 +15,43 @@ public:
     void spawnPenguin(Texture2D sharedTexture, float startX, float groundY) {
         texture = sharedTexture;
         x = startX;
-        y = groundY - texture.height;
+        // Calculate Y position based on the 2.0x scale used in Draw()
+        y = 372.0f - (texture.height * 2.0f);
+
         speed = 5.0f;
         active = true;
     }
 
     void Update() {
         x -= speed;
-        // If the penguin rolls off the left side of the screen, recycle it to the right
-        if (x + texture.width < 0)
+
+        // If the penguin rolls off the left side, recycle it to the right
+        if (x + (texture.width * 2.0f) < 0)
         {
-            x = 1200.0f + (GetRandomValue(100, 600)); // Teleports back to the right with random variance
+            x = 1200.0f + (GetRandomValue(100, 600));
         }
     }
 
     void Draw() {
         if (active)
         {
-            DrawTexture(texture, (int)x, (int)y, WHITE);
+            Rectangle source = {
+                0.0f, 0.0f,
+                (float)texture.width,
+                (float)texture.height
+            };
+
+            float scale = 2.0f;
+
+            Rectangle dest = {
+                x, y,
+                (float)texture.width * scale,
+                (float)texture.height * scale
+            };
+
+            Vector2 origin = { 0.0f, 0.0f };
+
+            DrawTexturePro(texture, source, dest, origin, 0.0f, WHITE);
         }
     }
 };
@@ -65,7 +85,7 @@ public:
         runTexture = LoadTexture("C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/PolarBearMovement.png");
         texture = idleTexture;
 
-        // Position the bear cleanly above the middle track line
+        // Position the bear above the middle track line
         y = 333.0f;
         groundY = y;
     }
@@ -81,34 +101,44 @@ public:
             isGrounded = false;
         }
 
-        // Apply physics update if bear is in the air
+        // Apply physics while the bear is in the air
         if (!isGrounded)
         {
-            speedY += gravity; // Gravity increases downward velocity
-            y += speedY;       // FIXED: Moved the bear using speedY instead of static gravity
+            speedY += gravity;
+            y += speedY;
         }
 
-        // Check if hitting or passing the floor boundary
+        // Check if the bear has reached the floor
         if (y >= groundY)
         {
             y = groundY;
             speedY = 0.0f;
-            isGrounded = true; // FIXED: Semicolon added here
+            isGrounded = true;
         }
 
         // Handle animation frame steps
         frameTimer += GetFrameTime();
+
         if (frameTimer >= frameSpeed) {
             frameTimer = 0.0f;
             currentFrames++;
-            if (currentFrames >= maxFrames) currentFrames = 0;
+
+            if (currentFrames >= maxFrames)
+                currentFrames = 0;
         }
     }
 
     void Draw() {
         if (isMoving) {
             float frameWidth = (float)runTexture.width / maxFrames;
-            Rectangle sourceRec = { (float)currentFrames * frameWidth, 0.0f, frameWidth, (float)runTexture.height };
+
+            Rectangle sourceRec = {
+                (float)currentFrames * frameWidth,
+                0.0f,
+                frameWidth,
+                (float)runTexture.height
+            };
+
             Vector2 position = { x, y };
 
             DrawTextureRec(runTexture, sourceRec, position, WHITE);
@@ -128,24 +158,29 @@ int main() {
     InitWindow(1200, 720, "PolarRunner");
     SetTargetFPS(60);
 
-    Texture2D iceBlock = LoadTexture("C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/iceblock.png");
-    Texture2D penguinTex = LoadTexture("C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/PenguinObstacle.png");
+    Texture2D iceBlock = LoadTexture(
+        "C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/iceblock.png"
+    );
 
-    // Ice blocks placed exactly in the middle of the screen
+    Texture2D penguinTex = LoadTexture(
+        "C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/PenguinObstacle.png"
+    );
+
+    // ADDED: Load the background once before the game loop
+    Texture2D background = LoadTexture(
+        "C:/Users/olsze/source/repos/PolarBearRunner/PolarBearRunner/Assets/Snowbackground.png"
+    );
+
+    // Ice blocks placed in the middle of the screen
     float floorY = 360.0f;
 
-    // Fixed array of 3 penguins spaced out down the line
+    // Fixed array of 3 penguins
     const int MAX_PENGUINS = 3;
     Penguin obstacles[MAX_PENGUINS];
 
-    // --- INITIAL RESOURCING & ALIGNMENT ---
     for (int i = 0; i < MAX_PENGUINS; i++) {
-        // Space them out initially beyond the right side of the screen
         float startX = 1200.0f + (i * 450.0f);
         obstacles[i].spawnPenguin(penguinTex, startX, floorY);
-
-        // Pin them flat to the ice line manually so they match the bear's feet
-        obstacles[i].y = 340.0f;
     }
 
     PolarBear player;
@@ -157,46 +192,86 @@ int main() {
     while (!WindowShouldClose()) {
         player.HandleMovement();
 
-        // Update all penguin positions (makes them move left across the screen)
+        // Update penguin positions
         for (int i = 0; i < MAX_PENGUINS; i++) {
             obstacles[i].Update();
         }
 
         floorScroll -= gameSpeed;
+
         if (floorScroll <= -iceBlock.width)
         {
             floorScroll = 0;
         }
 
         BeginDrawing();
-        ClearBackground(WHITE);
 
-        // Your static test block up top
+        // ADDED: Clear the screen and draw the background full-screen
+        ClearBackground(RAYWHITE);
+
+        Rectangle backgroundSource = {
+            0.0f,
+            0.0f,
+            (float)background.width,
+            (float)background.height
+        };
+
+        Rectangle backgroundDest = {
+            0.0f,
+            0.0f,
+            1200.0f,
+            720.0f
+        };
+
+        Vector2 backgroundOrigin = { 0.0f, 0.0f };
+
+        DrawTexturePro(
+            background,
+            backgroundSource,
+            backgroundDest,
+            backgroundOrigin,
+            0.0f,
+            WHITE
+        );
+
+        // Your original static test block
         DrawTexture(iceBlock, 100, 100, WHITE);
 
-        // Render the scrolling loop row of ice blocks
+        // Render the scrolling row of ice blocks
         int blocksNeeded = (1200 / iceBlock.width) + 2;
+
         for (int i = 0; i < blocksNeeded; i++)
         {
-            float xPostion = floorScroll + (i * iceBlock.width);
-            DrawTexture(iceBlock, (int)xPostion, (int)floorY, WHITE);
+            float xPosition = floorScroll + (i * iceBlock.width);
+
+            DrawTexture(
+                iceBlock,
+                (int)xPosition,
+                (int)floorY,
+                WHITE
+            );
         }
 
-        // Render all the penguins from our array cleanly
+        // Render penguins
         for (int i = 0; i < MAX_PENGUINS; i++) {
             obstacles[i].Draw();
         }
 
-        // Render the player cleanly on top of everything
+        // Render the player
         player.Draw();
 
         EndDrawing();
     }
 
-    // Properly cleaning up resources before the program exits
+    // Clean up resources
     player.Unload();
+
     UnloadTexture(iceBlock);
     UnloadTexture(penguinTex);
+
+    // ADDED: Unload the background
+    UnloadTexture(background);
+
     CloseWindow();
 
     return 0;
